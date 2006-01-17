@@ -10,6 +10,10 @@ WriteMakefile(
     PL_FILES            => {},
     PREREQ_PM => {
         'Test::More' => 0,
+		'Carp' => 0,
+		'Class::Base' => 0,
+		'WWW::Mechanize' => 0,
+		'LWP::Simple' => 0,
     },
     dist                => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
     clean               => { FILES => 'WebService-Images-Nofrag-*' },

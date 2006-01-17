@@ -20,7 +20,7 @@ Version 0.01
 
 =cut
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 our $SITE    = 'http://pix.nofrag.com/';
 
 =head1 SYNOPSIS
@@ -61,28 +61,28 @@ sub upload {
 
     if ( $self->{mech}->content =~ /Impossible to process this picture!/ ) {
         print "\tProblem, can't upload this file\n";
+        $self->{url}   = "none";
+        $self->{img}   = "none";
+        $self->{thumb} = "none";
         return;
     }
 
     if ( $self->{mech}->res->is_success ) {
-        my @links = $self->{mech}->find_all_links();
-        for my $link (@links) {
-            next if $self->{url};
-            if ( $link->url =~ /^$SITE.*\.html$/ ) {
-                $self->{url} = $link->url;
-            }
-        }
+        my $content = $self->{mech}->content;
+        $content =~ /\[url=(http:\/\/pix\.nofrag\.com\/.*\.html)\]/;
+        $self->{url} = $1;
+        $content =~ /\[img\](http:\/\/pix\.nofrag\.com\/.*)\[\/img\]/;
+        $self->{img}   = $1;
         my @img = $self->{mech}->find_all_images();
-        for my $img (@img) {
-            if ( $img->url =~ /^$SITE.*$/ ) {
+        foreach my $img (@img){
+            next if $self->{thumb};
+            if ($img->url =~ /^$SITE/){
                 $self->{thumb} = $img->url;
-                $self->{img}   = $img->url;
-                $self->{img} =~ s/(t)(\..*)/$2/;
             }
         }
     }
     else {
-        croak "non ca passe pas de toute maniere";
+        croak "Problem, can't upload this file.";
     }
 }
 
