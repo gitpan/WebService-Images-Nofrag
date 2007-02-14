@@ -3,103 +3,90 @@ package WebService::Images::Nofrag;
 use warnings;
 use strict;
 use Carp;
-use Class::Base;
-use base qw/Class::Base/;
 use WWW::Mechanize;
-use LWP::Simple;
-use Data::Dumper;
+use base qw(Class::Accessor::Fast);
+
+WebService::Images::Nofrag->mk_accessors(qw(thumb image url));
 
 =head1 NAME
 
-WebService::Images::Nofrag - 
-    upload an image to http://pix.nofrag.com
+WebService::Images::Nofrag - upload an image to http://pix.nofrag.com
 
 =head1 VERSION
 
-Version 0.01
+Version 0.04
 
 =cut
 
-our $VERSION = '0.02';
+our $VERSION = '0.04';
 our $SITE    = 'http://pix.nofrag.com/';
 
 =head1 SYNOPSIS
 
 Quick summary of what the module does.
 
-    my $pix = WebService::Images::Nofrag->new();
-    $pix->upload('/path/to/the/file');
+	my $pix = WebService::Images::Nofrag->new();
+	$pix->upload('/path/to/the/file');
     
-    print "URL : " . $pix->get_url() . "\n";    # print the url of the page
-    print "image : " . $pix->get_image() . "\n";# print the url of the image
-    print "thumb : " . $pix->get_thumb() . "\n";# print the url of the thumb
+	print "URL : " . $pix->url . "\n";    # print the url of the page
+  print "image : " . $pix->image . "\n";# print the url of the image
+  print "thumb : " . $pix->thumb . "\n";# print the url of the thumb
     
 =cut
 
-sub init {
-    my $self = shift;
-    $self->{options} = shift;
-    $self->{mech}    = WWW::Mechanize->new();
-    return $self;
-}
+=head2 upload
+
+	upload an image to http://pix.nofrag.com
+	
+	If a filename is not passed, we exit.
+	
+	Set 3 accessors, thumb image & url, with the url to the different
+	data.
+	
+=cut
 
 sub upload {
-    my $self = shift;
-    my $file = shift;
+	my ($self, $file) = @_;
 
-    if ( !-r $file ) {
-        print "\tProblem, can't read this file\n";
-        return;
-    }
+	if ( !defined $file || !-r $file ) {
+		croak "\tProblem, can't read this file\n";
+	}
 
-    $self->{mech}->get($SITE);
-    $self->{mech}->field( 'monimage', $file );
+	$self->{options} = shift;
+	$self->{mech}    = WWW::Mechanize->new();
+	
+	$self->{mech}->get($SITE);
+	$self->{mech}->field( 'monimage', $file );
 
-    $self->{mech}->click_button(
-        input => $self->{mech}->current_form()->find_input( undef, "submit" )
-    );
+	$self->{mech}->click_button(
+		input => $self->{mech}->current_form()->find_input( undef, "submit" )
+	);
 
-    if ( $self->{mech}->content =~ /Impossible to process this picture!/ ) {
-        print "\tProblem, can't upload this file\n";
-        $self->{url}   = "none";
-        $self->{img}   = "none";
-        $self->{thumb} = "none";
-        return;
-    }
+	if ( $self->{mech}->content =~ /Impossible to process this picture!/ ) {
+		$self->url("none");
+    $self->image("none");
+    $self->thumb("none");
+		croak "\tProblem, can't upload this file\n";
+	}
 
-    if ( $self->{mech}->res->is_success ) {
-        my $content = $self->{mech}->content;
-        $content =~ /\[url=(http:\/\/pix\.nofrag\.com\/.*\.html)\]/;
-        $self->{url} = $1;
-        $content =~ /\[img\](http:\/\/pix\.nofrag\.com\/.*)\[\/img\]/;
-        $self->{img}   = $1;
-        my @img = $self->{mech}->find_all_images();
-        foreach my $img (@img){
-            next if $self->{thumb};
-            if ($img->url =~ /^$SITE/){
-                $self->{thumb} = $img->url;
-            }
-        }
-    }
-    else {
-        croak "Problem, can't upload this file.";
-    }
+	if ( $self->{mech}->res->is_success ) {
+		my $content = $self->{mech}->content;
+		$content =~ /\[url=(http:\/\/pix\.nofrag\.com\/.*\.html)\]/;
+		$self->url($1);
+		$content =~ /\[img\](http:\/\/pix\.nofrag\.com\/.*)\[\/img\]/;
+		$self->image($1);
+		my @img = $self->{mech}->find_all_images();
+		foreach my $img (@img){
+			last if $self->thumb;
+			if ($img->url =~ /^$SITE/){
+				$self->thumb($img->url);
+			}
+		}
+	} else {
+		croak "Problem, can't upload this file.";
+	}
 }
 
-sub get_thumb {
-    my $self = shift;
-    return $self->{thumb};
-}
-
-sub get_image {
-    my $self = shift;
-    return $self->{img};
-}
-
-sub get_url {
-    my $self = shift;
-    return $self->{url};
-}
 
 =head1 AUTHOR
 
@@ -117,7 +104,7 @@ your bug as I make changes.
 
 You can find documentation for this module with the perldoc command.
 
-    perldoc WebService::Images::Nofrag
+	perldoc WebService::Images::Nofrag
 
 You can also look for information at:
 
@@ -152,4 +139,6 @@ under the same terms as Perl itself.
 
 =cut
 
-1;    # End of WebService::Images::Nofrag
+1;
+
+__END__

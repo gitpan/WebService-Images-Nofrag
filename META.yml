@@ -1,14 +1,13 @@
 # http://module-build.sourceforge.net/META-spec.html
 #XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
 name:         WebService-Images-Nofrag
-version:      0.02
+version:      0.04
 version_from: lib/WebService/Images/Nofrag.pm
 installdirs:  site
 requires:
-    Carp:                          0
-    Class::Base:                   0
-    LWP::Simple:                   0
+    Class::Accessor::Fast:         0
     Test::More:                    0
+    version:                       0
     WWW::Mechanize:                0
 
 distribution_type: module
