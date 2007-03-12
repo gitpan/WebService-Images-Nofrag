@@ -13,6 +13,7 @@ WriteMakefile(
         'version'               => 0,
         'WWW::Mechanize'        => 0,
         'Class::Accessor::Fast' => 0,
+		'Test::Perl::Critic'    => 0,
     },
     dist  => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
     clean => { FILES    => 'WebService-Images-Nofrag-*' },
