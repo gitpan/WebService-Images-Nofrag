@@ -5,8 +5,11 @@ use strict;
 use Carp;
 use WWW::Mechanize;
 use base qw(Class::Accessor::Fast);
+use Image::Magick;
+use Image::Magick::Info qw( get_info );
+use LWP::Simple;
 
-WebService::Images::Nofrag->mk_accessors(qw(thumb image url));
+WebService::Images::Nofrag->mk_accessors( qw(thumb image url) );
 
 =head1 NAME
 
@@ -14,23 +17,27 @@ WebService::Images::Nofrag - upload an image to http://pix.nofrag.com
 
 =head1 VERSION
 
-Version 0.04
+Version 0.06
 
 =cut
 
-our $VERSION = '0.05';
+our $VERSION = '0.06';
 our $SITE    = 'http://pix.nofrag.com/';
 
 =head1 SYNOPSIS
 
-Quick summary of what the module does.
-
 	my $pix = WebService::Images::Nofrag->new();
-	$pix->upload('/path/to/the/file');
+	$pix->upload({file => '/path/to/the/file'});
     
+	# or
+	$pix->upload({file => '/path/to/the/file'}, '800x600');
+	
+	# or
+	$pix->upload({url => 'http://test.com/my/file.jpg', '50%'});
+	
 	print "URL : " . $pix->url . "\n";    # print the url of the page
-  print "image : " . $pix->image . "\n";# print the url of the image
-  print "thumb : " . $pix->thumb . "\n";# print the url of the thumb
+  	print "image : " . $pix->image . "\n";# print the url of the image
+  	print "thumb : " . $pix->thumb . "\n";# print the url of the thumb
     
 =cut
 
@@ -38,7 +45,10 @@ Quick summary of what the module does.
 
 	upload an image to http://pix.nofrag.com
 	
-	If a filename is not passed, we exit.
+	We need a filemane or an URL to an image.
+	
+	You can specify a resolution, so the image will be resized before being
+	uploaded.
 	
 	Set 3 accessors, thumb image & url, with the url to the different
 	data.
@@ -46,47 +56,88 @@ Quick summary of what the module does.
 =cut
 
 sub upload {
-	my ($self, $file) = @_;
+    my ( $self, $params ) = @_;
 
-	if ( !defined $file || !-r $file ) {
-		croak "\tProblem, can't read this file\n";
-	}
+    my $tempory_file = "WIN_temp_file";
 
-	$self->{options} = shift;
-	$self->{mech}    = WWW::Mechanize->new();
-	
-	$self->{mech}->get($SITE);
-	$self->{mech}->field( 'monimage', $file );
+    if ( !defined $$params{ file } && !defined $$params{ url } ) {
+        croak "Please, give me a file or an url";
+    }
 
-	$self->{mech}->click_button(
-		input => $self->{mech}->current_form()->find_input( undef, "submit" )
-	);
+    if ( defined $$params{ file } && !-r $$params{ file } ) {
+        croak "Problem, can't read this file";
+    }
 
-	if ( $self->{mech}->content =~ /Impossible to process this picture!/ ) {
-		$self->url("none");
-    $self->image("none");
-    $self->thumb("none");
-		croak "\tProblem, can't upload this file\n";
-	}
+    if ( defined $$params{ url } ) {
+        getstore( $$params{ url }, $tempory_file );
+    }
 
-	if ( $self->{mech}->res->is_success ) {
-		my $content = $self->{mech}->content;
-		$content =~ /\[url=(http:\/\/pix\.nofrag\.com\/.*\.html)\]/;
-		$self->url($1);
-		$content =~ /\[img\](http:\/\/pix\.nofrag\.com\/.*)\[\/img\]/;
-		$self->image($1);
-		my @img = $self->{mech}->find_all_images();
-		foreach my $img (@img){
-			last if $self->thumb;
-			if ($img->url =~ /^$SITE/){
-				$self->thumb($img->url);
-			}
-		}
-	} else {
-		croak "Problem, can't upload this file.";
-	}
+    # do we need to resize ?
+    if ( defined $$params{ resize } ) {
+        my $img = new Image::Magick;
+        if ( -f $tempory_file ) {
+            $img->Read( $tempory_file );
+        } else {
+            $img->Read( $$params{ file } );
+        }
+        $img->Resize( $$params{ resize } );
+        $img->Write( $tempory_file );
+    }
+
+    if ( -f $tempory_file ) {
+        my $info = get_info( $tempory_file, ( "filesize" ) );
+        if ( $info->{ filesize } > 2000000 ) {
+            croak( "File can't be superior to 2MB" );
+        }
+    } else {
+        my $info = get_info( $$params{ file }, ( "filesize" ) );
+        if ( $info->{ filesize } > 2000000 ) {
+            croak( "File can't be superior to 2MB" );
+        }
+    }
+
+    $self->{ options } = shift;
+    $self->{ mech }    = WWW::Mechanize->new();
+
+    $self->{ mech }->get( $SITE );
+
+    if ( -f $tempory_file ) {
+        $self->{ mech }->field( 'monimage', $tempory_file );
+    } else {
+        $self->{ mech }->field( 'monimage', $$params{ file } );
+    }
+
+    $self->{ mech }->click_button( input =>
+             $self->{ mech }->current_form()->find_input( undef, "submit" ) );
+
+    if ( $self->{ mech }->content =~ /Impossible to process this picture!/ ) {
+        $self->url( "none" );
+        $self->image( "none" );
+        $self->thumb( "none" );
+        croak "\tProblem, can't upload this file\n";
+    }
+
+    if ( $self->{ mech }->res->is_success ) {
+        my $content = $self->{ mech }->content;
+        $content =~ /\[url=(http:\/\/pix\.nofrag\.com\/.*\.html)\]/;
+        $self->url( $1 );
+        $content =~ /\[img\](http:\/\/pix\.nofrag\.com\/.*)\[\/img\]/;
+        $self->image( $1 );
+        my @img = $self->{ mech }->find_all_images();
+        foreach my $img ( @img ) {
+            last if $self->thumb;
+            if ( $img->url =~ /^$SITE/ ) {
+                $self->thumb( $img->url );
+            }
+        }
+    } else {
+        croak "Problem, can't upload this file.";
+    }
+
+    if ( -f $tempory_file ) {
+        unlink $tempory_file;
+    }
 }
-
 
 =head1 AUTHOR
 

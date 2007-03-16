@@ -1,12 +1,15 @@
 --- #YAML:1.0
 name:                WebService-Images-Nofrag
-version:             0.05
+version:             0.06
 abstract:            upload an image to http://pix.nofrag.com
-license:             ~
-generated_by:        ExtUtils::MakeMaker version 6.31
+license:             perl
+generated_by:        ExtUtils::MakeMaker version 6.32
 distribution_type:   module
 requires:     
     Class::Accessor::Fast:         0
+    Image::Magick:                 0
+    Image::Magick::Info:           0
+    LWP::Simple:                   0
     Test::More:                    0
     Test::Perl::Critic:            0
     version:                       0
